@@ -14,7 +14,11 @@ int main()
     Sprite spriteTree;
     spriteTree.setTexture(textureTree);
     spriteTree.setPosition(810,0);
-    
+    Texture textureBee;
+    textureBee.loadFromFile("../Resources/graphics/bee.png");
+    Sprite spriteBee;
+    spriteBee.setTexture(textureBee);
+    spriteBee.setPosition(0, 800);
     while (window.isOpen())
        {
            /*
@@ -57,6 +61,7 @@ int main()
            // Draw our game scene here
            window.draw(spriteBackground);
            window.draw(spriteTree);
+           window.draw(spriteBee);
            // Show everything we just drew
            window.display();
        }
