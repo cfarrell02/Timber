@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -79,13 +80,72 @@ int main()
         branches[i].setPosition(-2000, -2000);
         branches[i].setOrigin(220, 20);
     }
-    for(int i = 1;i<=5;++i) updateBranches(i);
+    
+    //Prepare the player
+    Texture texturePlayer;
+    texturePlayer.loadFromFile("../Resources/graphics/player.png");
+    Sprite spritePlayer;
+    spritePlayer.setTexture(texturePlayer);
+    spritePlayer.setPosition(580, 720);
+    // The player starts on the left
+    side playerSide = side::LEFT;
+    
+    //Prepare the gravestone
+    Texture textureRIP;
+    textureRIP.loadFromFile("../Resources/graphics/rip.png");
+    Sprite spriteRIP;
+    spriteRIP.setTexture(textureRIP);
+    spriteRIP.setPosition(600, 860);
+    
+    // Prepare the axe
+    Texture textureAxe;
+    textureAxe.loadFromFile("../Resources/graphics/axe.png");
+    Sprite spriteAxe;
+    spriteAxe.setTexture(textureAxe);
+    spriteAxe.setPosition(700, 830);
+    // Line the axe up with the tree
+    const float AXE_POSITION_LEFT= 700;
+    const float AXE_POSITION_RIGHT =1075;
+    
+    //Prepare the flying log
+    Texture textureLog;
+    textureLog.loadFromFile("../Resources/graphics/log.png");
+    Sprite spriteLog;
+    spriteLog.setTexture(textureLog);
+    spriteLog.setPosition(810, 720);
+    //Some other useful log related variables
+    bool logActive = false;
+    float logSpeedX = 1000;
+    float logSpeedY = -1500;
+    
+    bool acceptInput = false;
+    
+    //Prepare the sound
+    SoundBuffer chopBuffer;
+    chopBuffer.loadFromFile("../Resources/sound/chop.wav");
+    Sound chop;
+    chop.setBuffer(chopBuffer);
+    
+    SoundBuffer deathBuffer;
+    deathBuffer.loadFromFile("../Resources/sound/death.wav");
+    Sound death;
+    death.setBuffer(deathBuffer);
+    // Out of time
+    SoundBuffer ootBuffer;
+    ootBuffer.loadFromFile("../Resources/sound/out_of_time.wav");
+    Sound outofTime;
+    outofTime.setBuffer(ootBuffer);
     
     while (window.isOpen())
        {
            //Fixes SFML Not opening error.
            Event event;
            while (window.pollEvent(event)) {
+               if(event.type==Event::KeyReleased && !paused){
+                   acceptInput = true;
+                   spriteAxe.setPosition(2000, spriteAxe.getPosition().y);
+               }
+               
                if (event.type == Event::Closed) {
                        window.close();
                }
@@ -96,15 +156,58 @@ int main()
                 Handle the players input
                 ****************************************
                 */
+           
                if (event.key.code == sf::Keyboard::Escape)
                    window.close();
            
-               if (event.key.code == sf::Keyboard::Return && paused){
+               if (Keyboard::isKeyPressed(Keyboard::Return)){
                    paused = false;
                    score = 0;
                    timeRemaining = 6;
                    event.key.code = sf::Keyboard::Unknown;
+                   for(int i =0;i<NUM_BRANCHES;++i){
+                       branchPositions[i] = side::NONE;
+                   }
+                   spriteRIP.setPosition(675, 2000);
+                   spritePlayer.setPosition(580, 720);
+                   spriteAxe.setPosition(700, 830);
+                   acceptInput=true;
                }
+           if(acceptInput){
+               if(Keyboard::isKeyPressed(sf::Keyboard::Right)){
+                   playerSide = side::RIGHT;
+                   
+                   ++score;
+                   
+                   timeRemaining += (2/score)+.15;
+                   
+                   spriteAxe.setPosition(AXE_POSITION_RIGHT, spriteAxe.getPosition().y);
+                   spritePlayer.setPosition(1200, 720);
+                   
+                   updateBranches(score);
+                   spriteLog.setPosition(810, 720);
+                   logSpeedX = -5000;
+                   logActive = true;
+                   acceptInput = false;
+                   chop.play();
+               }else if(Keyboard::isKeyPressed(sf::Keyboard::Left)){
+                   playerSide = side::LEFT;
+                   
+                   ++score;
+                   
+                   timeRemaining += (2/score)+.15;
+                   
+                   spriteAxe.setPosition(AXE_POSITION_LEFT, spriteAxe.getPosition().y);
+                   spritePlayer.setPosition(580, 720);
+                   
+                   updateBranches(score);
+                   spriteLog.setPosition(810, 720);
+                   logSpeedX = 5000;
+                   logActive = true;
+                   acceptInput = false;
+                   chop.play();
+               }
+           }
                
                
            if(!paused){
@@ -121,12 +224,14 @@ int main()
                if (timeRemaining <= 0.0f) {
                    // Pause the game
                    paused = true;
+                   outofTime.play();
                // Change the message shown to the player
                    messageText.setString("Out of time!!");
                //Reposition the text based on its new size
                FloatRect textRect = messageText.getLocalBounds();
                    messageText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect. height / 2.0f);
                    messageText.setPosition(1920/2.0f,1080/2.0f);}
+               
                if(!beeActive){
                    srand((int)time(0));
                    beeSpeed = (rand()%200)+200;
@@ -179,6 +284,32 @@ int main()
                        branches[i].setPosition(3000, height);
                    }
                }
+               
+               if(logActive){
+                   spriteLog.setPosition(spriteLog.getPosition().x + (logSpeedX*dt.asSeconds()), spriteLog.getPosition().y+(logSpeedY*dt.asSeconds()));
+                   
+                   if(spriteLog.getPosition().x<-100||spriteLog.getPosition().x>2000){
+                       logActive = false;
+                       spriteLog.setPosition(810, 720);
+                   }
+               }
+               
+               if(branchPositions[5]==playerSide){
+                   paused = true;
+                   acceptInput = false;
+                   spriteRIP.setPosition(525, 760);
+                   spritePlayer.setPosition(2000, 660);
+                   spriteAxe.setPosition(spriteAxe.getPosition().x, 1500);
+                   spriteLog.setPosition(spriteLog.getPosition().x, 1500);
+                   messageText.setString("SQUISHED");
+                   FloatRect textRect = messageText.getLocalBounds();
+                   messageText.setOrigin(textRect.left+ textRect.width/2.0f,
+                                         textRect.top+textRect.height/2.0f);
+                   
+                   messageText.setPosition(window.getSize().x/2, window.getSize().y/2);
+                   death.play();
+                   
+               }
            }
            
            /*
@@ -197,6 +328,14 @@ int main()
            window.draw(spriteClouds[2]);
            for(Sprite branch:branches) window.draw(branch);
            window.draw(spriteTree);
+           //Draw the player
+           window.draw(spritePlayer);
+           //Draw the axe
+           window.draw(spriteAxe);
+           // Draw the flying log
+           window.draw(spriteLog);
+           //Draw the gravestone
+           window.draw(spriteRIP);
            window.draw(spriteBee);
            window.draw(timeBar);
            window.draw(scoreText);
